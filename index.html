@@ -711,7 +711,7 @@ function renderForm(){
     h+='<div class="ebox" style="border-color:#ddd;background:#f8f8f4"><div class="etitle">Quien paga — El contratante</div><div class="fg2"><div class="fg"><label>Nombre del contratante</label><input id="xn" type="text" placeholder="Nombre del contratante"/></div><div class="fg"><label>Edad del contratante</label><input id="xe" type="number" value="35" min="18" max="60"/></div><div class="fg"><label>Género</label><select id="xg"><option>Masculino</option><option>Femenino</option></select></div><div class="fg"><label>Fumador</label><select id="xu"><option>No</option><option>Sí</option></select></div></div></div>';
     h+='<div class="sh">Plan</div><div class="fg2"><div class="fg"><label>Prima anual (UDIs)</label><input id="xp" type="number" value="8819.89" step="0.01"/></div><div class="fg"><label>Suma asegurada al vencimiento (UDIs)</label><input id="xsa" type="number" value="135000"/></div><div class="fg"><label>Entrega mensual AVE post-18 (UDIs)</label><input id="xave" type="number" value="2868" step="10"/></div><div class="fg"><label>Años de administración AVE</label><input id="xavea" type="number" value="4" min="1" max="10"/></div></div>';
   }
-  h+='<div class="sh">Conversión y rendimiento</div><div class="fg2"><div class="fg"><label>Valor UDI hoy (MXN)</label><input id="xudi" type="number" value="8.20" step="0.01"/></div><div class="fg"><label>Inflación anual (%)</label><input id="xinf" type="number" value="4.5" step="0.5"/></div><div class="fg"><label>Rendimiento adicional (%) sobre UDIs</label>'+rSel(CFG[PROD].defRend)+'</div><div class="fg"><label>Fecha del estudio</label><input id="xfecha" type="date"/></div></div>';
+  h+='<div class="sh">Conversión y rendimiento</div><div class="fg2"><div class="fg"><label>Valor UDI hoy (MXN)</label><input id="xudi" type="number" value="8.57" step="0.01"/></div><div class="fg"><label>Inflación anual (%)</label><input id="xinf" type="number" value="4.8" step="0.5"/></div><div class="fg"><label>Rendimiento adicional (%) sobre UDIs</label>'+rSel(CFG[PROD].defRend)+'</div><div class="fg"><label>Fecha del estudio</label><input id="xfecha" type="date"/></div></div>';
   h+='<div class="fg2"><div class="fg"><label>Nombre del producto</label><input id="xprod" value="'+CFG[PROD].name+'"/></div></div>';
   g('fcontent').innerHTML=h;
   var fd=g('xfecha');if(fd)fd.valueAsDate=new Date();
@@ -766,13 +766,21 @@ function calcORVI(){
     var pacu=Math.min(a,ap)*prima,xacu=conAve?Math.min(a,xx2)*xx1:0;
     var recupBase=ORVI_RECUP[i]!==undefined?ORVI_RECUP[i]:ORVI_RECUP[ORVI_RECUP.length-1];
     var protBase=ORVI_PROT[i]!==undefined?ORVI_PROT[i]:ORVI_PROT[ORVI_PROT.length-1];
+    /* Rendimiento adicional: interés compuesto capitalizable desde año 1
+       Fórmula: valor_doc[i] × (1+rend)^i
+       Con rend=0 → valores exactos del documento garantizado
+       Con rend>0 → cada año capitaliza sobre el saldo del año anterior */
     var recup=recupBase*Math.pow(1+P.rend/100,i);
     var prot=protBase*Math.pow(1+P.rend/100,i);
     var udi=P.udiH*Math.pow(1+P.inf/100,i);
     var pacuMxn=enP?pacu*udi:primaMaxMxn;
     var xacuMxn=conAve?(enX?xacu*udi:aveMaxMxn):0;
     var acumAVEudi=ORVI_ACUM_AVE.length>0&&ORVI_ACUM_AVE[i]!==undefined?ORVI_ACUM_AVE[i]:pacu+xacu;
-    ROWS.push({a:a,er:er,enP:enP,pacu:pacu,xacu:xacu,tacu:pacu+xacu,acumAVE:acumAVEudi,prot:prot,recup:recup,fondo:0,dotal:0,udi:udi,pacuMxn:pacuMxn,xacuMxn:xacuMxn,tacuMxn:pacuMxn+xacuMxn,acumAVEmxn:enP?acumAVEudi*udi:acumAVEudi*(P.udiH*Math.pow(1+P.inf/100,Math.min(i,Math.max(ap,P.xx2>0?P.xx2:0))-1)),protMxn:prot*udi,recupMxn:recup*udi,fondoMxn:0,dotalMxn:0,isr:0});
+    /* acumAVE en MXN: congelado al valor UDI del último año de pago (prima o AVE, el mayor) */
+    var ultimoPago=Math.max(ap,conAve?xx2:0);
+    var udiCongelado=P.udiH*Math.pow(1+P.inf/100,Math.min(i,ultimoPago-1));
+    var acumAVEmxnVal=acumAVEudi*udiCongelado;
+    ROWS.push({a:a,er:er,enP:enP,pacu:pacu,xacu:xacu,tacu:pacu+xacu,acumAVE:acumAVEudi,prot:prot,recup:recup,fondo:0,dotal:0,udi:udi,pacuMxn:pacuMxn,xacuMxn:xacuMxn,tacuMxn:pacuMxn+xacuMxn,acumAVEmxn:acumAVEmxnVal,protMxn:prot*udi,recupMxn:recup*udi,fondoMxn:0,dotalMxn:0,isr:0});
   }
   var r10=ROWS.length>=10?ROWS[9]:ROWS[ROWS.length-1];
   var r15=ROWS.length>=15?ROWS[14]:ROWS[ROWS.length-1];
@@ -797,9 +805,11 @@ function calcIS(){
   for(var i=0;i<nA;i++){
     var a=i+1,er=P.edad+i,enP=a<=ap;
     var pacu=Math.min(a,ap)*P.prima;
-    var aj=Math.pow(1+P.rend/100,i);
-    var fondo=(IS_FONDO[i]!==undefined?IS_FONDO[i]:IS_FONDO[IS_FONDO.length-1])*aj;
-    var vefec=(IS_VEFEC[i]!==undefined?IS_VEFEC[i]:IS_VEFEC[IS_VEFEC.length-1])*aj;
+    /* Rendimiento adicional: interés compuesto capitalizable desde año 1
+       Fórmula: valor_doc[i] × (1+rend)^i — con rend=0 = doc exacto */
+    var ajIS=Math.pow(1+P.rend/100,i);
+    var fondo=(IS_FONDO[i]!==undefined?IS_FONDO[i]:IS_FONDO[IS_FONDO.length-1])*ajIS;
+    var vefec=(IS_VEFEC[i]!==undefined?IS_VEFEC[i]:IS_VEFEC[IS_VEFEC.length-1])*ajIS;
     var prot=IS_PROT[i]!==undefined?IS_PROT[i]:IS_PROT[IS_PROT.length-1];
     var udi=P.udiH*Math.pow(1+P.inf/100,i);
     var pacuMxn=enP?pacu*udi:primaMaxMxn;
