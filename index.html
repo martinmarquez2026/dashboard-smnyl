@@ -84,6 +84,8 @@ tr:hover td{background:#fafaf7}
 .tp{background:#ddeeff;color:#003087;border-radius:3px;padding:1px 4px;font-size:9px;font-weight:700}
 .tl{background:#edfaf3;color:#0a6640;border-radius:3px;padding:1px 4px;font-size:9px;font-weight:700}
 .td-dot{background:#fff3cd;color:#7a4f00;border-radius:3px;padding:1px 4px;font-size:9px;font-weight:700}
+.fg input:focus,.fg select:focus{border-color:#003087!important;outline:none;box-shadow:0 0 0 2px rgba(0,48,135,.15)}
+.fg input{background:#fff!important}
 .note{font-size:10px;color:#888;padding:.4rem .65rem;border-left:3px solid #ddd;background:#f8f8f4;border-radius:0 8px 8px 0;margin-top:.35rem;line-height:1.5}
 #resumen{display:none;margin-top:.75rem}
 .rw{max-width:430px;margin:0 auto;background:#fff;border-radius:16px;overflow:hidden;border:1px solid #e0e0d8}
@@ -142,8 +144,8 @@ tr:hover td{background:#fafaf7}
 <!-- ZONA PDF -->
 <div class="pdf-zone no-print" id="pdfZone" onclick="openPicker()">
   <div class="pdf-icon">📄</div>
-  <div class="pdf-title">Cargar cotizador SMYL (PDF)</div>
-  <div class="pdf-sub">Arrastra tu PDF aquí, o presiona para seleccionar desde archivos.<br>Detecta el producto automáticamente y llena el formulario.</div>
+  <div class="pdf-title">Cargar cotizador Solucionline (PDF)</div>
+  <div class="pdf-sub" id="pdfSubMsg">Carga el PDF del cotizador de Solucionline.<br>El dashboard detecta el producto y llena todo automáticamente.</div>
   <div class="pdf-btns" onclick="event.stopPropagation()">
     <button class="btn-pdf btn-pdf-main" onclick="openPicker()">📂 Seleccionar PDF</button>
     <button class="btn-pdf btn-pdf-sec" onclick="resetPDF()">🔄 Limpiar</button>
@@ -151,7 +153,7 @@ tr:hover td{background:#fafaf7}
   <input type="file" id="fileInput" accept="application/pdf,.pdf" style="display:none" onchange="handleFile(this.files[0])"/>
   <div class="pdf-status" id="pdfStatus"></div>
   <div class="extracted-preview" id="epPreview">
-    <div class="ep-title">Datos extraídos del cotizador</div>
+    <div class="ep-title">Datos extraídos del cotizador <span style="font-weight:400;color:#0a6640;text-transform:none;letter-spacing:0">— puedes corregir cualquier campo en el formulario antes de generar</span></div>
     <div class="ep-grid" id="epGrid"></div>
   </div>
 </div>
@@ -174,7 +176,7 @@ tr:hover td{background:#fafaf7}
 <!-- FORMULARIO -->
 <div class="card no-print" id="fcard">
   <div id="fcontent"></div>
-  <button class="btn-gen" id="btnCalc" style="background:#003087">Generar proyección</button>
+  <div style="font-size:10px;color:#888;text-align:center;margin-bottom:6px;padding:5px 8px;background:#f8f8f4;border-radius:8px;border:1px solid #e8e8e0">✏️ Revisa y corrige los campos si es necesario — todos son editables</div><button class="btn-gen" id="btnCalc" style="background:#003087">Generar proyección</button>
 </div>
 
 <div class="fhero no-print" id="fhero">
@@ -245,7 +247,7 @@ var SB_DOTAL=[0,0,4605,7644,11640,16662,22722,29767,37678,46278,55008,64314,7359
 var SB_PCT=['0%','0%','16.12%','20.55%','25.65%','31.31%','37.47%','43.98%','50.67%','57.36%','63.82%','69.92%','75.53%','80.55%','84.91%','88.95%','90.04%'];
 var SB_AVE_DATA=[{sa:135000,m:2868,ac:34412,bf:102684,ve:112406},{sa:101752,m:2868,ac:68824,bf:68796,ve:87090},{sa:68172,m:2868,ac:103236,bf:34569,ve:60129},{sa:34255,m:2868,ac:137647,bf:0,ve:30157}];
 
-/* ORVI arrays dinámicos */
+/* ORVI arrays dinámicos — se llenan al cargar el PDF del cotizador */
 var ORVI_RECUP=[], ORVI_PROT=[], ORVI_ACUM_AVE=[];
 
 /* ══════════════════════════════════════
@@ -325,9 +327,7 @@ function handleFile(file){
 
 function limpiarTodo(){
   /* Asignar nuevos arrays — no mutar los existentes */
-  ORVI_RECUP=[];
-  ORVI_PROT=[];
-  ORVI_ACUM_AVE=[];
+  ORVI_RECUP=[];ORVI_PROT=[];ORVI_ACUM_AVE=[];
   IS_FONDO=[1670,3393,6291,9288,12388,15595,18913,22347,25901,29580,33389,37330,41411,45636,50012,51260,52548,53879,55255,56677,58148,59670,61246,62880,64574,66333,68160,70060,72038,74084];
   IS_VEFEC=[0,0,757,3754,6854,10061,13380,16814,20367,24046,27855,31797,35877,40102,44478,51260,52548,53879,55255,56677,58148,59670,61246,62880,64574,66333,68160,70060,72038,74084];
   VM_RECUP=[0,0,817,2095,3452,3577,4980,5195,6648,6952,8525,9014,10668,11276,13036,13777,15666,16556,18562,28000];
@@ -690,18 +690,20 @@ function setProd(p,el){
   ['gccard','tsec','bres','fhero'].forEach(function(id){var e=g(id);if(e)e.style.display='none';});
   g('mets').innerHTML='';g('resumen').style.display='none';g('hgrid').innerHTML='';
   document.querySelectorAll('.tab.on').forEach(function(t){t.style.background=cfg.ac;t.style.borderColor=cfg.ac;});
+  var msgEl=g('pdfSubMsg');
+  if(msgEl){msgEl.innerHTML='Carga el PDF del cotizador de Solucionline.<br>El dashboard detecta el producto y llena todo automáticamente.';msgEl.style.color='#888';}
 }
 
 function renderForm(){
   var h='';
   if(PROD==='orvi'){
     h+='<div class="sh">Datos del asegurado</div><div class="fg2"><div class="fg"><label>Nombre</label><input id="xn" type="text" placeholder="Nombre completo"/></div><div class="fg"><label>Edad</label><input id="xe" type="number" value="50" min="18" max="80"/></div><div class="fg"><label>Género</label><select id="xg"><option>Masculino</option><option>Femenino</option></select></div><div class="fg"><label>Fumador</label><select id="xu"><option>No</option><option>Sí</option></select></div></div>';
-    h+='<div class="sh">Plan base</div><div class="fg2"><div class="fg"><label>Prima anual base (UDIs)</label><input id="xp" type="number" value="4145.54" step="0.01"/></div><div class="fg"><label>Años de pago prima</label><input id="xap" type="number" value="10" min="1" max="40"/></div><div class="fg"><label>Suma asegurada base (UDIs)</label><input id="xsa" type="number" value="60000"/></div><div class="fg"><label>Plazo cobertura (años)</label><input id="xpl" type="number" value="52" min="5" max="99"/></div></div>';
-    h+='<div class="ebox"><div class="etitle">AVE — Aumento de Valor en Efectivo <span class="badge b-opt">opcional</span></div><div class="fg2"><div class="fg"><label>Prima AVE anual (UDIs) — 0 sin AVE</label><input id="xx1" type="number" value="1200" min="0" step="50"/></div><div class="fg"><label>Años de pago AVE</label><input id="xx2" type="number" value="15" min="1" max="40"/></div></div></div>';
+    h+='<div class="sh">Plan base</div><div class="fg2"><div class="fg"><label>Prima anual base (UDIs)</label><input id="xp" type="number" value="2989.42" step="0.01"/></div><div class="fg"><label>Años de pago prima</label><input id="xap" type="number" value="10" min="1" max="40"/></div><div class="fg"><label>Suma asegurada base (UDIs)</label><input id="xsa" type="number" value="60000"/></div><div class="fg"><label>Plazo cobertura (años)</label><input id="xpl" type="number" value="67" min="5" max="99"/></div></div>';
+    h+='<div class="ebox"><div class="etitle">AVE — Aumento de Valor en Efectivo <span class="badge b-opt">opcional</span></div><div class="fg2"><div class="fg"><label>Prima AVE anual (UDIs) — 0 sin AVE</label><input id="xx1" type="number" value="0" min="0" step="50"/></div><div class="fg"><label>Años de pago AVE</label><input id="xx2" type="number" value="10" min="1" max="40"/></div></div></div>';
   } else if(PROD==='is'){
     h+='<div class="sh">Datos del asegurado</div><div class="fg2"><div class="fg"><label>Nombre</label><input id="xn" type="text" placeholder="Nombre completo"/></div><div class="fg"><label>Edad</label><input id="xe" type="number" value="35" min="18" max="65"/></div><div class="fg"><label>Género</label><select id="xg"><option>Masculino</option><option>Femenino</option></select></div><div class="fg"><label>Fumador</label><select id="xu"><option>No</option><option>Sí</option></select></div></div>';
     h+='<div class="sh">Plan base</div><div class="fg2"><div class="fg"><label>Prima básica anual (UDIs)</label><input id="xp" type="number" value="3689" step="0.01"/></div><div class="fg"><label>Años de pago prima</label><input id="xap" type="number" value="15" min="1" max="40"/></div><div class="fg"><label>Suma asegurada (UDIs)</label><input id="xsa" type="number" value="75000"/></div><div class="fg"><label>Plazo cobertura (años)</label><input id="xpl" type="number" value="30" min="10" max="60"/></div></div>';
-    h+='<div class="ebox green"><div class="etitle" style="color:#0a6640">Prima Planeada <span class="badge b-opt">opcional</span></div><div class="fg2"><div class="fg"><label>Prima Planeada anual (UDIs) — 0 sin planeada</label><input id="xx1" type="number" value="0" min="0" step="50"/></div><div class="fg"><label>Años de pago</label><input id="xx2" type="number" value="15" min="1" max="40"/></div></div></div>';
+    h+='<div class="ebox green"><div class="etitle" style="color:#0a6640">Prima Planeada <span class="badge b-opt">opcional</span></div><div class="fg2"><div class="fg"><label>Prima Planeada anual (UDIs) — 0 sin planeada</label><input id="xx1" type="number" value="0" min="0" step="50"/></div><div class="fg"><label>Años de pago</label><input id="xx2" type="number" value="10" min="1" max="40"/></div></div></div>';
     h+='<div class="ebox" style="border-color:#a8e6c4;background:#f0fff8"><div class="etitle" style="color:#0a6640">Deducibilidad ISR <span class="badge b-ppr">Art. 151 LISR</span> <span class="badge b-tax">Tope 5 UMAs</span></div><div class="fg2"><div class="fg"><label>Tasa marginal ISR</label><select id="xisr"><option value="0.10">10%</option><option value="0.16">16%</option><option value="0.2136">21.36%</option><option value="0.2352">23.52%</option><option value="0.30" selected>30%</option><option value="0.35">35%</option></select></div><div class="fg"><label>UMA anual 2026 (MXN)</label><input id="xuma" type="number" value="37450" step="10"/></div></div></div>';
   } else if(PROD==='vm'){
     h+='<div class="sh">Datos de la asegurada</div><div class="fg2"><div class="fg"><label>Nombre</label><input id="xn" type="text" placeholder="Nombre completo"/></div><div class="fg"><label>Edad</label><input id="xe" type="number" value="32" min="18" max="55"/></div><div class="fg"><label>Fumador</label><select id="xu"><option>No</option><option>Sí</option></select></div><div class="fg"><label>Fecha del estudio</label><input id="xfecha" type="date"/></div></div>';
@@ -720,6 +722,10 @@ function renderForm(){
 /* ══════════════════════════════════════
    CÁLCULO PRINCIPAL
 ══════════════════════════════════════ */
+function msgSinPDF(){
+  return '<div class="mc" style="grid-column:1/-1;background:#fff8e1;border:2px solid #ffc107;border-radius:12px;padding:1.1rem"><div style="font-size:13px;font-weight:800;color:#7a4f00;margin-bottom:8px">📄 Carga el PDF del cotizador para continuar</div><div style="font-size:11px;color:#555;line-height:1.8"><strong>1.</strong> Abre Solucionline y genera el cotizador de tu cliente<br><strong>2.</strong> Descarga el PDF<br><strong>3.</strong> Arrástralo a la zona azul de arriba o presiona "Seleccionar PDF"<br><strong>4.</strong> El dashboard detecta el producto y llena todo automáticamente</div></div>';
+}
+
 function calc(){
   var nom=rv('xn','Cliente')||'Cliente';
   var edad=ri('xe',35);
@@ -750,8 +756,10 @@ function calcORVI(){
   var conAve=xx1>0;
   var edad=P.edad,prima=P.prima,nom=P.nom;
   P.ap=ap;P.sa=sa;P.xx1=xx1;P.xx2=xx2;P.conAve=conAve;
+  /* Ajustar plazo al tamaño del array cargado */
   if(ORVI_RECUP.length===0){
-    g('mets').innerHTML='<div class="mc" style="grid-column:1/-1"><div class="ml" style="color:#c0392b;font-weight:700">⚠ Carga el PDF del cotizador para generar la proyección</div></div>';
+    g('mets').innerHTML=msgSinPDF();
+    g('gccard').style.display='none';g('tsec').style.display='none';g('bres').style.display='none';
     ROWS=[];return;
   }
   var maxPlazo=Math.max(1,102-edad);
@@ -797,19 +805,36 @@ function calcORVI(){
 function calcIS(){
   var ap=ri('xap',15),xx1=rn('xx1',0),xx2=ri('xx2',15),isrT=rn('xisr',0.30),uma=rn('xuma',37450);
   P.ap=ap;P.xx1=xx1;P.xx2=xx2;P.isrT=isrT;
+  var ppMaxUdi=xx1>0?xx1*xx2:0; /* total Prima Planeada aportada */
   var primaMaxUdi=ap*P.prima,udiFinP=P.udiH*Math.pow(1+P.inf/100,ap-1);
   var primaMaxMxn=primaMaxUdi*udiFinP;
+  var ppMaxMxn=xx1>0?ppMaxUdi*(P.udiH*Math.pow(1+P.inf/100,Math.min(xx2,ap)-1)):0;
   var tope=5*uma,primaAnMxn=P.prima*P.udiH;
   var deduc=Math.min(primaAnMxn,tope)*isrT,dedAcum=deduc*ap,costoNeto=primaAnMxn-deduc;
+  /* Prima Planeada: anualidad adicional al 3.95% base
+     fondoPP[i] = xx1 × acumulador(i, xx2, 3.95%)
+     donde acumulador = valor futuro de $1/año */
+  var tasaBase=0.0395;
+  var ppAcum=0,ppAcums=[];
+  for(var k=0;k<Math.max(ri('xpl',30),IS_FONDO.length);k++){
+    if(k<xx2) ppAcum=(ppAcum+1)*(1+tasaBase);
+    else ppAcum=ppAcum*(1+tasaBase);
+    ppAcums.push(ppAcum);
+  }
+
+  if(!IS_FONDO||IS_FONDO.length===0){g('mets').innerHTML=msgSinPDF();g('gccard').style.display='none';g('tsec').style.display='none';g('bres').style.display='none';ROWS=[];return;}
   ROWS=[];var nA=Math.min(ri('xpl',30),IS_FONDO.length);
   for(var i=0;i<nA;i++){
     var a=i+1,er=P.edad+i,enP=a<=ap;
     var pacu=Math.min(a,ap)*P.prima;
+    var ppExtra=xx1>0?(xx1*ppAcums[i]):0; /* fondo adicional de Prima Planeada */
     /* Rendimiento adicional: interés compuesto capitalizable desde año 1
-       Fórmula: valor_doc[i] × (1+rend)^i — con rend=0 = doc exacto */
+       Fórmula: (valor_doc[i] + fondoPP[i]) × (1+rend)^i */
     var ajIS=Math.pow(1+P.rend/100,i);
-    var fondo=(IS_FONDO[i]!==undefined?IS_FONDO[i]:IS_FONDO[IS_FONDO.length-1])*ajIS;
-    var vefec=(IS_VEFEC[i]!==undefined?IS_VEFEC[i]:IS_VEFEC[IS_VEFEC.length-1])*ajIS;
+    var fondoBase=(IS_FONDO[i]!==undefined?IS_FONDO[i]:IS_FONDO[IS_FONDO.length-1]);
+    var vefecBase=(IS_VEFEC[i]!==undefined?IS_VEFEC[i]:IS_VEFEC[IS_VEFEC.length-1]);
+    var fondo=(fondoBase+ppExtra)*ajIS;
+    var vefec=(vefecBase+ppExtra)*ajIS;
     var prot=IS_PROT[i]!==undefined?IS_PROT[i]:IS_PROT[IS_PROT.length-1];
     var udi=P.udiH*Math.pow(1+P.inf/100,i);
     var pacuMxn=enP?pacu*udi:primaMaxMxn;
@@ -963,7 +988,14 @@ function buildResumen(){
   else{var rAP2=ROWS[(P.ap||1)-1]||rF;var r15h=ROWS.length>=15?ROWS[14]:rF;hh+='<div class="hito"><div class="hdot" style="background:'+ac+'">'+(P.ap||10)+'</div><div class="hito-info"><div class="ht">Año '+(P.ap||10)+' — Libre de pago (edad '+(P.edad+(P.ap||10)-1)+')</div><div class="hd">Rescate: ≈'+px(rAP2.recupMxn)+'.</div></div></div>';if(ROWS.length>=15)hh+='<div class="hito"><div class="hdot" style="background:#0a6640">15</div><div class="hito-info"><div class="ht">Año 15 — Madurez</div><div class="hd">Rescate: ≈'+px(r15h.recupMxn)+'. Protección: ≈'+px(r15h.protMxn)+'.</div></div></div>';hh+='<div class="hito"><div class="hdot" style="background:#7a3f00">'+ROWS.length+'</div><div class="hito-info"><div class="ht">Año '+ROWS.length+' — Vencimiento (edad '+rF.er+')</div><div class="hd">Rescate: ≈'+px(rF.recupMxn)+'. Protección: ≈'+px(rF.protMxn)+'.</div></div></div>';}
   g('rhitos').innerHTML=hh;
   var anos=PROD==='vm'?[1,5,7,9,11,13,15,17,20]:PROD==='sb'?[1,3,5,7,10,13,15,17]:[1,5,P.ap,15,20,30,ROWS.length];
+  var recupLbl=PROD==='is'?'Fondo acumulado':'Valor en efectivo';
+  var protLbl='Prot. fallecimiento';
   var seen={},filas='';
+  filas+='<div class="rfila" style="border-bottom:1.5px solid #ccc;margin-bottom:3px;padding-bottom:3px">';
+  filas+='<span class="rfl2" style="font-weight:700;color:#555;font-size:9px">Año / Edad</span>';
+  filas+='<span class="rfv" style="color:#0a6640;font-size:9px">'+recupLbl+'</span>';
+  filas+='<span class="rfv" style="color:'+ac+';font-size:9px">'+protLbl+'</span>';
+  filas+='</div>';
   anos.forEach(function(a){var idx=a-1;if(idx>=0&&idx<ROWS.length&&!seen[a]){seen[a]=true;var r=ROWS[idx];var mv=PROD==='is'?px(r.fondoMxn):px(r.recupMxn);filas+='<div class="rfila"><span class="rfl2">Año '+r.a+' (edad '+r.er+')</span><span class="rfv" style="color:#0a6640">'+mv+'</span><span class="rfv" style="color:'+ac+'">'+px(r.protMxn)+'</span></div>';}});
   g('rtabla').innerHTML=filas;
 }
@@ -978,7 +1010,7 @@ function togRes(){
    INIT
 ══════════════════════════════════════ */
 g('btnCalc').addEventListener('click',calc);
-renderForm();
+setProd('orvi',g('pb-orvi'));
 </script>
 </body>
-</html>
+</html>ß
